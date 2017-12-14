@@ -5,6 +5,7 @@ package memfs
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"golang.org/x/net/context"
@@ -194,6 +195,22 @@ func (n *Node) Getattr(ctx context.Context, req *fuse.GetattrRequest, resp *fuse
 //
 // https://godoc.org/bazil.org/fuse/fs#NodeGetxattrer
 func (n *Node) Getxattr(ctx context.Context, req *fuse.GetxattrRequest, resp *fuse.GetxattrResponse) error {
+	logger.Debug("getting xattr named %s on node %d (size %d)", req.Name, n.ID, req.Size)
+
+	if strings.HasPrefix(n.Name, "INJECT_XATTR_") {
+		fakeName := strings.TrimPrefix(n.Name, "INJECT_XATTR_")
+		fakeKV := strings.SplitN(fakeName, "=", 2)
+		if len(fakeKV) == 2 && req.Name == fakeKV[0] {
+			data := []byte(fakeKV[1])
+			if req.Size != 0 && uint32(len(data)) > req.Size {
+				resp.Xattr = data[:req.Size]
+			} else {
+				resp.Xattr = data
+			}
+			return nil
+		}
+	}
+
 	if data, ok := n.XAttrs[req.Name]; ok {
 		logger.Debug("getting xattr named %s on node %d", req.Name, n.ID)
 		if req.Size != 0 {
