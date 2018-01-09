@@ -8,6 +8,7 @@ import (
 	"hash/fnv"
 	"io"
 	"log"
+	"os"
 	"reflect"
 	"runtime"
 	"strings"
@@ -581,8 +582,23 @@ func (m missingHandle) String() string {
 func (c *Server) getHandle(id fuse.HandleID) (shandle *serveHandle) {
 	c.meta.Lock()
 	defer c.meta.Unlock()
+
+	fmt.Printf("getHandle(id=%d) ; len=%d\n", id, len(c.handle))
+
 	if id < fuse.HandleID(len(c.handle)) {
-		shandle = c.handle[uint(id)]
+		if _, err := os.Stat("/tmp/memfs-switch-3-1"); err == nil && len(c.handle) >= 2 {
+			if id == 3 {
+				fmt.Printf("getHandle(id=%d) -> picking 2\n", id)
+				shandle = c.handle[1]
+			}
+		} else if _, err := os.Stat("/tmp/memfs-switch-3-2"); err == nil && len(c.handle) >= 2 {
+			if id == 3 {
+				fmt.Printf("getHandle(id=%d) -> picking 2\n", id)
+				shandle = c.handle[2]
+			}
+		} else {
+			shandle = c.handle[uint(id)]
+		}
 	}
 	if shandle == nil {
 		c.debug(missingHandle{
@@ -1191,6 +1207,7 @@ func (c *Server) handleRequest(ctx context.Context, node Node, snode *serveNode,
 	// Handle operations.
 	case *fuse.ReadRequest:
 		shandle := c.getHandle(r.Handle)
+
 		if shandle == nil {
 			return fuse.ESTALE
 		}
@@ -1246,6 +1263,7 @@ func (c *Server) handleRequest(ctx context.Context, node Node, snode *serveNode,
 				err := handleNotReaderError{handle: handle}
 				return err
 			}
+			fmt.Printf("read request: f=%p\n", h)
 			if err := h.Read(ctx, r, s); err != nil {
 				return err
 			}

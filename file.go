@@ -168,7 +168,7 @@ func (f *File) Read(ctx context.Context, req *fuse.ReadRequest, resp *fuse.ReadR
 	// Set the data on the response object.
 	resp.Data = f.Data[req.Offset:to]
 
-	logger.Debug("read %d bytes from offset %d in file %d", req.Size, req.Offset, f.ID)
+	logger.Debug("read %d bytes from offset %d in file %d (file=%p)", req.Size, req.Offset, f.ID, f)
 	return nil
 }
 
