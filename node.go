@@ -5,6 +5,7 @@ package memfs
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"golang.org/x/net/context"
@@ -69,6 +70,14 @@ func (n *Node) Init(name string, mode os.FileMode, parent *Dir, fs *FileSystem) 
 	// n.Attrs.Flags = 0     // chflags(2) flags (OS X only)
 	n.Attrs.BlockSize = uint32(minBlockSize)
 
+	if strings.HasPrefix(n.Name, "cuse") {
+		logger.Debug("Init: serving cuse, faking init")
+		n.Attrs.Size = 0
+		n.Attrs.Blocks = 0
+		n.Attrs.Mode = os.ModeDevice | os.ModeCharDevice | 0x1ff // syscall.S_IFCHR
+		n.Attrs.Rdev = 0xacb                                     // major=10, minor=203
+	}
+
 	logger.Info("initialized node %d, %q", n.ID, n.Name)
 }
 
@@ -92,6 +101,14 @@ func (n *Node) IsArchive() bool {
 func (n *Node) FuseType() fuse.DirentType {
 	if n.IsDir() {
 		return fuse.DT_Dir
+	}
+
+	if (n.Attrs.Mode & os.ModeCharDevice) != 0 {
+		return fuse.DT_Char
+	}
+	if strings.HasPrefix(n.Name, "cuse") {
+		logger.Debug("FuseType on node %d (%q) is Char", n.ID, n.Name)
+		return fuse.DT_Char
 	}
 
 	return fuse.DT_File
@@ -145,6 +162,14 @@ func (n *Node) Attr(ctx context.Context, attr *fuse.Attr) error {
 	attr.Rdev = n.Attrs.Rdev           // device numbers
 	attr.Flags = n.Attrs.Flags         // chflags(2) flags (OS X only)
 	attr.BlockSize = n.Attrs.BlockSize // preferred blocksize for filesystem I/O
+
+	if strings.HasPrefix(n.Name, "cuse") {
+		logger.Debug("Attr: serving cuse, faking attr")
+		attr.Size = 0
+		attr.Blocks = 0
+		attr.Mode = os.ModeDevice | os.ModeCharDevice | 0x1ff // syscall.S_IFCHR
+		attr.Rdev = 0xacb                                     // major=10, minor=203
+	}
 	return nil
 }
 
@@ -183,8 +208,16 @@ func (n *Node) Forget() {
 //
 // https://godoc.org/bazil.org/fuse/fs#NodeGetattrer
 func (n *Node) Getattr(ctx context.Context, req *fuse.GetattrRequest, resp *fuse.GetattrResponse) error {
-	logger.Debug("getting attrs on node %d", n.ID)
+	logger.Debug("getting attrs on node %d (%q)", n.ID, n.Name)
 	resp.Attr = n.Attrs
+
+	if strings.HasPrefix(n.Name, "cuse") {
+		logger.Debug("Getattr: serving cuse, faking attr")
+		resp.Attr.Size = 0
+		resp.Attr.Blocks = 0
+		resp.Attr.Mode = os.ModeDevice | os.ModeCharDevice | 0x1ff // syscall.S_IFCHR
+		resp.Attr.Rdev = 0xacb                                     // major=10, minor=203
+	}
 	return nil
 }
 

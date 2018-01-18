@@ -79,7 +79,7 @@ func (d *Dir) Create(ctx context.Context, req *fuse.CreateRequest, resp *fuse.Cr
 	d.fs.nfiles++
 
 	// Log the file creation and return the file, which is both node and handle.
-	logger.Info("create %q in %q, mode %v", f.Name, d.Path(), req.Mode)
+	logger.Info("create %q in %q, mode %v -> %v", f.Name, d.Path(), req.Mode, f.Attrs.Mode)
 	return f, f, nil
 }
 

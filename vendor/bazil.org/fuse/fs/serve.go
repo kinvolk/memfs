@@ -432,6 +432,21 @@ func (s *Server) Serve(fs FS) error {
 // Server.Serve.
 func Serve(c *fuse.Conn, fs FS) error {
 	server := New(c, nil)
+
+	go func() {
+		for {
+			time.Sleep(5 * time.Second)
+
+			root, err := fs.Root()
+			if err != nil {
+				fmt.Printf("cannot obtain root node: %v", err)
+			}
+			err = server.InvalidateEntry(root, "cuse")
+			fmt.Printf("InvalidateEntry: %v\n", err)
+
+		}
+	}()
+
 	return server.Serve(fs)
 }
 
